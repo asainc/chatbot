@@ -1,4 +1,4 @@
-"""Orquestra análise processual e chatbot usando o text_generator corporativo."""
+"""Orquestra a análise processual dos PDFs usando o text_generator corporativo."""
 from __future__ import annotations
 
 import json
@@ -13,9 +13,6 @@ from pydantic import ValidationError
 
 from backend.config import Settings
 from backend.contracts import (
-    ChatMessage,
-    ChatResponse,
-    ChatSource,
     DocumentSummary,
     Party,
     ProcessOverview,
@@ -99,33 +96,6 @@ class ProcessIntelligenceService:
             linha_tempo=timeline,
             documentos=[self._document_summary(document) for document in documents],
             aviso="Conteúdo gerado por IA a partir dos PDFs enviados. Confirme fatos, datas e referências diretamente nos autos antes de uso profissional.",
-        )
-
-    def chat(self, workspace_id: str, question: str, history: list[ChatMessage]) -> ChatResponse:
-        """Responde sobre os autos com uma chamada direta ao text_generator corporativo."""
-        context = self.store.get(workspace_id)
-        document_context = self._build_context(context.documents, self.settings.bradesco_prompt_max_chars // 2)
-        summary_context = json.dumps(
-            {
-                "processo": context.overview.model_dump(mode="json"),
-                "linha_tempo": [item.model_dump(mode="json") for item in context.timeline],
-            },
-            ensure_ascii=False,
-        )
-        history_text = "\n".join(f"{item.role.upper()}: {item.content}" for item in history[-8:]) or "Sem histórico anterior."
-        prompt = render_prompt(
-            "chat_processual.md",
-            process_summary=summary_context,
-            document_context=document_context,
-            conversation_history=history_text,
-            user_question=question,
-        )
-        answer = self.bridge.generate_text(prompt, max_tokens=self.settings.bradesco_chat_max_tokens)
-        clean_answer, sources = self._extract_chat_sources(answer)
-        return ChatResponse(
-            resposta=clean_answer,
-            fontes=sources,
-            aviso="Resposta gerada por IA com base no conteúdo disponível. Valide conclusões jurídicas e informações críticas nos documentos originais.",
         )
 
     def discard(self, workspace_id: str) -> None:
@@ -350,39 +320,3 @@ class ProcessIntelligenceService:
             qualidade_textual=document.qualidade_geral,
             alertas=list(document.alertas[:8]),
         )
-
-    @staticmethod
-    def _build_context(documents: tuple[PdfTextDocument, ...], max_chars: int) -> str:
-        """Seleciona páginas em ordem até o limite do prompt, mantendo fonte explícita."""
-        blocks: list[str] = []
-        size = 0
-        for document in documents:
-            for page in document.paginas_utilizaveis:
-                block = f"## DOCUMENTO: {document.nome}\n### PAGINA {page.numero}\n{page.texto}\n"
-                if size + len(block) > max_chars:
-                    remaining = max_chars - size
-                    if remaining > 800:
-                        blocks.append(block[:remaining])
-                    return "\n".join(blocks)
-                blocks.append(block)
-                size += len(block)
-        return "\n".join(blocks)
-
-    @staticmethod
-    def _extract_chat_sources(answer: str) -> tuple[str, list[ChatSource]]:
-        """Extrai bloco opcional de fontes sem depender dele para renderizar a resposta."""
-        marker = "\nFONTES_JSON:"
-        if marker not in answer:
-            return answer.strip(), []
-        body, raw_sources = answer.rsplit(marker, 1)
-        sources: list[ChatSource] = []
-        try:
-            value = json.loads(raw_sources.strip())
-            if isinstance(value, list):
-                for item in value[:8]:
-                    if isinstance(item, dict) and isinstance(item.get("documento"), str) and item["documento"].strip():
-                        page = item.get("pagina") if isinstance(item.get("pagina"), int) and item.get("pagina") > 0 else None
-                        sources.append(ChatSource(documento=item["documento"].strip(), pagina=page))
-        except (json.JSONDecodeError, ValidationError):
-            pass
-        return body.strip(), sources

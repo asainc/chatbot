@@ -47,3 +47,14 @@ A mudança 3.0.1 não alterou o contrato HTTP da API; somente a versão da aplic
 - Teste de regressão confirma que o launcher não depende de `workspace()` para ser exibido/aberto.
 - Teste de regressão confirma deslocamento pela variável `--app-sidebar-width` e `z-index` superior ao visualizador de PDF.
 - O `ng build` completo continua dependente da instalação das dependências Angular no ambiente corporativo; o pacote não inclui `node_modules`.
+
+
+## Versão 3.1.0 — integração do chatbot com Q&A
+
+- Testes Python: 10 aprovados.
+- Testes estruturais do frontend: 6 aprovados.
+- `scripts/validate_architecture.py`: aprovado.
+- Smoke test de `POST /api/v3/ai-ready/chat`: HTTP 200 com serviço simulado.
+- Teste de regressão confirma que a pergunta é encaminhada sem reescrita para `agente_informacional`.
+- Teste de regressão confirma que o retorno `answer` é convertido em `resposta` para o frontend.
+- O build Angular completo depende das dependências npm corporativas do ambiente de execução; os testes estruturais não substituem esse build.

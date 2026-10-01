@@ -58,6 +58,7 @@ _SERVICE_PATHS = {
     "retriever": "/iagen-retriever/v1",
     "workflow_request": "/iagen-workflow-request/v1/request/start-workflow",
     "workflow_status": "/iagen-workflow-response/v1/response/workflow-execution-status/",
+    "qa": "/iagen-qa/v1/chats/questions",
 }
 _URL_OVERRIDES = {
     "text": "BRADESCO_TEXT_URL",
@@ -68,6 +69,7 @@ _URL_OVERRIDES = {
     "retriever": "BRADESCO_RETRIEVER_URL",
     "workflow_request": "BRADESCO_WORKFLOW_REQUEST_URL",
     "workflow_status": "BRADESCO_WORKFLOW_STATUS_URL",
+    "qa": "BRADESCO_QA_URL",
 }
 
 
@@ -146,6 +148,12 @@ def _service_url(service: str, environment: str | None = None) -> str:
         raise ValueError(
             "Configure BRADESCO_WORKFLOW_STATUS_URL para homol/prod: "
             "a rota não está confirmada nesses ambientes."
+        )
+    # O endpoint Q&A fornecido como referência pertence ao ambiente DEV. Para
+    # outros ambientes, a URL deve ser confirmada e informada explicitamente.
+    if service == "qa" and selected != "dev":
+        raise ValueError(
+            "Configure BRADESCO_QA_URL para homol/prod: o endpoint Q&A fornecido foi confirmado apenas em DEV."
         )
     return _BASE_URLS[selected] + _SERVICE_PATHS[service]
 
@@ -304,7 +312,7 @@ def configure_iagen(auth_parameter: Mapping[str, Any]) -> dict[str, Any]:
     if config.get("ca_bundle") and not Path(config["ca_bundle"]).is_file():
         raise ValueError("ca_bundle deve apontar para um certificado CA existente.")
     # Valida opções de transporte antes de substituir a configuração ativa.
-    for key in ("text_url", "identity_url"):
+    for key in ("text_url", "identity_url", "qa_url"):
         if config.get(key):
             config[key] = _validate_url(config[key])
     if "timeout" in config:
@@ -932,6 +940,25 @@ def _configured_endpoint(config: Mapping[str, Any], env_key: str) -> str:
     return _validate_url(url)
 
 
+def agente_informacional(payload: dict, qa_parameter: dict | None = None) -> dict[str, Any]:
+    """Envia uma pergunta ao fluxo corporativo de perguntas e respostas.
+
+    O contrato segue o endpoint ``/iagen-qa/v1/chats/questions`` apresentado no
+    exemplo fornecido: ``workflow_code``, ``question`` e ``async_mode``. Campos
+    opcionais autorizados pelo workflow são preservados sem transformação.
+    Autenticação e TLS permanecem centralizados neste módulo.
+    """
+    body = _require_mapping(payload, "payload")
+    _require_text(body.get("workflow_code"), "workflow_code")
+    _require_text(body.get("question"), "question")
+    if not isinstance(body.get("async_mode"), bool):
+        raise ValueError("async_mode deve ser booleano.")
+    config = _require_mapping(qa_parameter or {}, "qa_parameter")
+    endpoint = config.get("endpoint_url") or config.get("qa_url") or _AUTH_CONFIG.get("qa_url")
+    url = _validate_url(endpoint) if endpoint else _service_url("qa", config.get("ambiente"))
+    return _call("qa.question", "POST", url, payload=body, parameters=config)
+
+
 def agent_message(payload: dict, agent_parameter: dict | None = None) -> dict[str, Any]:
     """Chama o agente Bridge com corpo JSON e endpoint completo configurado.
 
@@ -1037,6 +1064,14 @@ API_CONFIGS: dict[str, dict[str, Any]] = {
     },
     "workflow_status": {
         "payload": {"workflow_execution_id": ""},
+        "parameters": {"ambiente": "dev", "timeout": 120},
+    },
+    "qa": {
+        "payload": {
+            "workflow_code": "",
+            "question": "Pergunta fictícia sem dados pessoais.",
+            "async_mode": False,
+        },
         "parameters": {"ambiente": "dev", "timeout": 120},
     },
     "agente": {
@@ -1153,7 +1188,7 @@ __all__ = [
     "retriever_search", "retriever_next_questions", "file_manager_list_files",
     "file_manager_upload", "file_manager_upload_base64",
     "file_manager_get_download_url", "file_manager_delete", "workflow_execute",
-    "index_documents", "workflow_status", "wait_for_workflow", "agent_message",
+    "index_documents", "workflow_status", "wait_for_workflow", "agente_informacional", "agent_message",
     "orchestrator_message", "file_manager_list", "file_manager_upload_file",
     "file_manager_download_url", "file_manager_delete_file", "workflow_get_status",
 ]

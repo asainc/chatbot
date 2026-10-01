@@ -2,7 +2,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { ApiConfiguration } from './config';
-import { AiReadyConfiguration, ChatMessage, ChatResponse, Health, ProcessWorkspaceResponse } from './contracts';
+import { AiReadyConfiguration, ChatResponse, Health, ProcessWorkspaceResponse } from './contracts';
 
 @Injectable({providedIn: 'root'})
 export class AiReadyApiService {
@@ -23,11 +23,8 @@ export class AiReadyApiService {
     return this.http.post<ProcessWorkspaceResponse>(`${this.config.baseUrl}/ai-ready/analisar`, data);
   }
 
-  chat(workspaceId: string, pergunta: string, historico: ChatMessage[]) {
-    return this.http.post<ChatResponse>(`${this.config.baseUrl}/ai-ready/${encodeURIComponent(workspaceId)}/chat`, {
-      pergunta,
-      historico,
-    });
+  chat(pergunta: string) {
+    return this.http.post<ChatResponse>(`${this.config.baseUrl}/ai-ready/chat`, {pergunta});
   }
 
   discard(workspaceId: string) {

@@ -6,11 +6,13 @@
 
 **Motivo:** o novo objetivo do produto é inteligência documental para processos cíveis. Manter o domínio anterior aumentaria acoplamento, superfície de manutenção e risco de executar funcionalidades fora do novo escopo.
 
-## 2026-10-01 — Geração somente via `text_generator`
+## 2026-10-01 — Separação entre análise documental e Q&A
 
-**Decisão:** toda geração de linguagem do resumo, consolidação e chatbot passa por `BradescoBridgeClient.generate_text`, que chama `gpt_bradesco.text_generator`.
+**Decisão:** resumo e consolidação dos PDFs continuam em `gpt_bradesco.text_generator`. O chatbot usa exclusivamente `gpt_bradesco.agente_informacional(payload)` e exibe o campo `answer` devolvido pela API corporativa.
 
-**Motivo:** reutilizar autenticação, TLS, endpoint e contrato corporativo existentes, sem criar um cliente paralelo.
+**Motivo:** os dois serviços possuem contratos distintos. A pergunta do usuário deve chegar ao workflow Q&A sem ser transformada em um prompt local, preservando o contrato demonstrado da API.
+
+**Rastreabilidade:** `BRADESCO_QA_WORKFLOW_CODE` é parametrizado; o valor padrão corresponde ao workflow fornecido no exemplo. O endpoint Q&A informado foi confirmado apenas em DEV, portanto outros ambientes exigem `BRADESCO_QA_URL` validado.
 
 ## 2026-10-01 — Contexto documental temporário
 

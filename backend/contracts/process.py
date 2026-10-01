@@ -84,32 +84,16 @@ class ProcessWorkspaceResponse(Contract):
     aviso: str
 
 
-class ChatMessage(Contract):
-    """Mensagem curta usada somente para continuidade conversacional."""
-
-    role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=8000)
-
-
 class ChatRequest(Contract):
-    """Pergunta do usuário e histórico recente do chat."""
+    """Pergunta digitada pelo usuário na janela do chatbot."""
 
     pergunta: str = Field(min_length=2, max_length=8000)
-    historico: list[ChatMessage] = Field(default_factory=list, max_length=12)
-
-
-class ChatSource(Contract):
-    """Referência textual devolvida pela IA quando a resposta cita os autos."""
-
-    documento: str
-    pagina: int | None = Field(default=None, ge=1)
 
 
 class ChatResponse(Contract):
-    """Resposta gerativa produzida exclusivamente pelo text_generator corporativo."""
+    """Resposta devolvida pelo campo ``answer`` da API corporativa Q&A."""
 
     resposta: str
-    fontes: list[ChatSource] = Field(default_factory=list)
     aviso: str
 
 
@@ -118,6 +102,7 @@ class AiReadyConfiguration(Contract):
 
     provedor: Literal["bradesco_iagen"] = "bradesco_iagen"
     geracao_texto_configurada: bool
+    chat_qa_configurado: bool
     limite_arquivos: int
     limite_mb_por_arquivo: int
     limite_total_mb: int

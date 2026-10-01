@@ -1,5 +1,5 @@
 """Versões oficiais da aplicação e do contrato HTTP."""
-APP_VERSION = "3.0.4"
+APP_VERSION = "3.1.0"
 API_CONTRACT_VERSION = "3.0.0"
 API_MAJOR = "3"
 API_PREFIX = f"/api/v{API_MAJOR}"

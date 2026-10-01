@@ -57,13 +57,13 @@ export type ChatMessage = {
 
 export type ChatResponse = {
   resposta: string;
-  fontes: Array<{documento: string; pagina: number | null}>;
   aviso: string;
 };
 
 export type AiReadyConfiguration = {
   provedor: 'bradesco_iagen';
   geracao_texto_configurada: boolean;
+  chat_qa_configurado: boolean;
   limite_arquivos: number;
   limite_mb_por_arquivo: number;
   limite_total_mb: number;

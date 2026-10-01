@@ -8,6 +8,7 @@ EXPECTED_BACKEND_ROUTERS = {"__init__.py", "processes.py"}
 EXPECTED_AI_SERVICES = {
     "__init__.py",
     "bradesco_bridge.py",
+    "chat_service.py",
     "pdf_text_extractor.py",
     "process_intelligence.py",
     "prompt_loader.py",
@@ -26,8 +27,12 @@ def main() -> int:
 
     source = (ROOT / "backend" / "services" / "process_intelligence.py").read_text(encoding="utf-8")
     bridge = (ROOT / "backend" / "services" / "bradesco_bridge.py").read_text(encoding="utf-8")
+    chat = (ROOT / "backend" / "services" / "chat_service.py").read_text(encoding="utf-8")
+    gpt = (ROOT / "gpt_bradesco.py").read_text(encoding="utf-8")
     if "generate_text(" not in source or "text_generator" not in bridge:
-        raise SystemExit("A integração do chatbot deve continuar passando pelo gpt_bradesco.text_generator.")
+        raise SystemExit("A análise documental deve continuar usando gpt_bradesco.text_generator.")
+    if "answer_question(" not in chat or "agente_informacional" not in bridge or "def agente_informacional(" not in gpt:
+        raise SystemExit("O chatbot deve usar gpt_bradesco.agente_informacional e retornar o campo answer.")
     print("Arquitetura AI Ready validada.")
     return 0
 

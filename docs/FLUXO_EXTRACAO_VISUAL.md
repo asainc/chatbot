@@ -7,6 +7,7 @@ sequenceDiagram
     participant B as FastAPI
     participant P as PyMuPDF
     participant T as gpt_bradesco.text_generator
+    participant Q as gpt_bradesco.agente_informacional
     participant W as Workspace temporário
 
     U->>A: Seleciona PDFs do processo
@@ -23,17 +24,19 @@ sequenceDiagram
     B-->>A: Workspace estruturado
     A-->>U: Resumo, partes, pontos de atenção e timeline
 
-    U->>A: Pergunta no chatbot
-    A->>B: POST /api/v3/ai-ready/{workspace_id}/chat
-    B->>W: Recupera contexto temporário
-    B->>T: Pergunta + resumo + trechos dos autos
-    T-->>B: Resposta textual
-    B-->>A: Resposta + fontes quando disponíveis
+    U->>A: Digita uma pergunta no chatbot
+    A->>B: POST /api/v3/ai-ready/chat {pergunta}
+    B->>Q: {workflow_code, question, async_mode:false}
+    Q-->>B: {answer: "..."}
+    B-->>A: {resposta: answer}
+    A-->>U: Exibe a resposta na janela do chat
 ```
 
 ## Decisões importantes
 
-- O PDF é lido localmente com PyMuPDF; o projeto não chama OCR automaticamente nem envia o binário para outro serviço.
-- A geração de linguagem passa pela função pública `text_generator` de `gpt_bradesco.py`.
-- O conteúdo textual fica apenas no workspace em memória e expira pelo TTL configurado.
-- A interface deve tratar a saída como apoio à revisão. Fatos, datas e conclusões relevantes precisam ser conferidos nos autos originais.
+- O PDF é lido localmente com PyMuPDF; o projeto não envia automaticamente o binário para o chatbot.
+- A análise documental usa `text_generator`; o chatbot usa `agente_informacional`.
+- A pergunta do chatbot é enviada sem reescrita no campo `question`.
+- O chat não depende do workspace local dos PDFs.
+- O conteúdo textual dos PDFs fica apenas no workspace em memória e expira pelo TTL configurado.
+- A interface trata a saída como apoio à revisão; informações críticas devem ser conferidas nas fontes oficiais.

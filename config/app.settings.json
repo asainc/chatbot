@@ -15,7 +15,8 @@
   "bradesco_text_max_tokens": 12000,
   "bradesco_prompt_max_chars": 52000,
   "bradesco_analysis_max_tokens": 9000,
-  "bradesco_chat_max_tokens": 5000,
   "max_total_upload_bytes": 83886080,
-  "max_analysis_chunks": 24
+  "max_analysis_chunks": 24,
+  "bradesco_qa_url": "",
+  "bradesco_qa_workflow_code": "CD_WRFL_QA_778_LEITURA_SENTENCA_PIAUI_AAJR_SYNC"
 }

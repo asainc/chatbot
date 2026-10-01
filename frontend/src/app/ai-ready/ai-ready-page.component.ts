@@ -13,9 +13,7 @@ type LocalDocument = {
   url: string;
 };
 
-type UiChatMessage = ChatMessage & {
-  sources?: Array<{documento: string; pagina: number | null}>;
-};
+type UiChatMessage = ChatMessage;
 
 @Component({
   selector: 'app-ai-ready-page',
@@ -27,7 +25,7 @@ type UiChatMessage = ChatMessage & {
         <div>
           <span class="eyebrow">AI Ready · Processos cíveis</span>
           <h1>Visão inteligente dos autos</h1>
-          <p>Envie documentos em PDF para obter uma síntese factual, linha do tempo e um assistente generativo contextualizado no processo.</p>
+          <p>Envie documentos em PDF para obter síntese factual e linha do tempo. Use o assistente corporativo para perguntas e respostas.</p>
         </div>
         <div class="connection-pill" [attr.data-status]="connectionState()">
           <span class="connection-dot" aria-hidden="true"></span>
@@ -221,11 +219,11 @@ type UiChatMessage = ChatMessage & {
               <div class="empty-document-icon" aria-hidden="true"><span></span><span></span><span></span></div>
               <span class="eyebrow">Workspace processual</span>
               <h2>Selecione os documentos para montar a visão do processo</h2>
-              <p>O AI Ready organiza fatos, partes, pedidos e movimentações em uma única tela e mantém o chatbot contextualizado nos PDFs enviados.</p>
+              <p>O AI Ready organiza fatos, partes, pedidos e movimentações em uma única tela. O chatbot consulta a API corporativa de perguntas e respostas.</p>
               <div class="empty-features">
                 <div><strong>01</strong><span>Resumo factual do processo</span></div>
                 <div><strong>02</strong><span>Linha do tempo com fonte e página</span></div>
-                <div><strong>03</strong><span>Chat generativo sobre os autos</span></div>
+                <div><strong>03</strong><span>Chat corporativo de perguntas e respostas</span></div>
               </div>
             </section>
           }
@@ -261,42 +259,31 @@ type UiChatMessage = ChatMessage & {
           <header class="chat-header">
             <div>
               <span class="chat-avatar">AI</span>
-              <div><strong>Assistente processual</strong><small>Contextualizado nos PDFs enviados</small></div>
+              <div><strong>Assistente processual</strong><small>Perguntas e respostas pela API corporativa</small></div>
             </div>
             <button type="button" class="icon-button" aria-label="Fechar chat" (click)="toggleChat()">×</button>
           </header>
 
           <div class="chat-body">
             @if (!chatMessages().length) {
-              @if (workspace()) {
-                <div class="chat-welcome">
-                  <strong>O que você quer entender sobre este processo?</strong>
-                  <p>As respostas são geradas pelo <code>gpt_bradesco.text_generator</code> com o contexto dos documentos analisados.</p>
-                  <div class="suggestion-grid">
-                    @for (question of suggestedQuestions; track question) {
-                      <button type="button" (click)="askSuggestion(question)">{{ question }}</button>
-                    }
-                  </div>
+              <div class="chat-welcome">
+                <strong>O que você quer perguntar?</strong>
+                <p>A pergunta é enviada ao <code>gpt_bradesco.agente_informacional</code> e a janela apresenta o campo <code>answer</code> retornado pela API corporativa.</p>
+                <div class="suggestion-grid">
+                  @for (question of suggestedQuestions; track question) {
+                    <button type="button" [disabled]="!chatAvailable()" (click)="askSuggestion(question)">{{ question }}</button>
+                  }
                 </div>
-              } @else {
-                <div class="chat-welcome chat-welcome--inactive">
-                  <span class="chat-state-badge" aria-hidden="true">PDF</span>
-                  <strong>O assistente está pronto para acompanhar a análise</strong>
-                  <p>Adicione os PDFs do processo e clique em <b>Analisar processo</b>. Depois disso, o chat usará somente o contexto dos documentos analisados.</p>
-                </div>
-              }
+              </div>
             }
             @for (message of chatMessages(); track $index) {
               <article class="chat-message" [class.user-message]="message.role === 'user'">
                 <span>{{ message.role === 'user' ? 'Você' : 'AI Ready' }}</span>
                 <p>{{ message.content }}</p>
-                @if (message.sources?.length) {
-                  <small>Fontes: @for (source of message.sources; track source.documento + ':' + source.pagina) { {{ source.documento }}@if (source.pagina) {, p. {{ source.pagina }}}; }</small>
-                }
               </article>
             }
             @if (chatLoading()) {
-              <article class="chat-message typing-message"><span>AI Ready</span><p>Consultando os documentos…</p></article>
+              <article class="chat-message typing-message"><span>AI Ready</span><p>Consultando a API corporativa…</p></article>
             }
           </div>
 
@@ -306,11 +293,11 @@ type UiChatMessage = ChatMessage & {
               name="chatDraft"
               rows="2"
               maxlength="8000"
-              [placeholder]="workspace() ? 'Pergunte sobre fatos, pedidos, decisões ou documentos…' : 'Analise os PDFs para habilitar as perguntas'"
-              [disabled]="!workspace() || chatLoading()"
+              [placeholder]="chatAvailable() ? 'Digite sua pergunta para o assistente…' : 'Chat corporativo não configurado'"
+              [disabled]="!chatAvailable() || chatLoading()"
               (keydown.enter)="onChatEnter($event)"
             ></textarea>
-            <button class="primary" type="submit" [disabled]="!workspace() || !chatDraft.trim() || chatLoading()">Enviar</button>
+            <button class="primary" type="submit" [disabled]="!chatAvailable() || !chatDraft.trim() || chatLoading()">Enviar</button>
           </form>
         </section>
       }
@@ -342,14 +329,17 @@ export class AiReadyPageComponent implements OnDestroy {
   ];
 
   readonly selectedFiles = computed(() => this.localDocuments().map(item => item.file));
-  readonly canAnalyze = computed(() => this.selectedFiles().length > 0 && !this.analyzing() && this.connectionState() === 'online');
+  readonly canAnalyze = computed(() => this.selectedFiles().length > 0 && !this.analyzing() && Boolean(this.configuration()?.geracao_texto_configurada));
+  readonly chatAvailable = computed(() => Boolean(this.configuration()?.chat_qa_configurado));
   readonly totalPages = computed(() => this.workspace()?.documentos.reduce((sum, item) => sum + item.paginas, 0) ?? 0);
   readonly highConfidenceEvents = computed(() => this.workspace()?.linha_tempo.filter(item => item.confianca === 'alta').length ?? 0);
   readonly connectionLabel = computed(() => this.connectionState() === 'online' ? 'IA corporativa disponível' : this.connectionState() === 'checking' ? 'Verificando conexão' : 'IA indisponível');
   readonly connectionDetail = computed(() => {
     if (this.connectionState() === 'checking') return 'Validando backend e configuração';
-    if (this.connectionState() === 'offline') return 'Revise a API ou o deployment';
-    return this.configuration()?.geracao_texto_configurada ? 'text_generator configurado' : 'Deployment de texto não configurado';
+    if (this.connectionState() === 'offline') return 'Revise a configuração das APIs corporativas';
+    const analysis = this.configuration()?.geracao_texto_configurada ? 'análise documental ativa' : 'análise documental indisponível';
+    const chat = this.configuration()?.chat_qa_configurado ? 'chat Q&A ativo' : 'chat Q&A indisponível';
+    return `${analysis} · ${chat}`;
   });
 
   constructor() {
@@ -371,7 +361,7 @@ export class AiReadyPageComponent implements OnDestroy {
       ]);
       if (health.status !== 'ok' || health.versao_api !== '3.0.0') throw new Error('O frontend e o backend não estão na mesma versão.');
       this.configuration.set(configuration);
-      this.connectionState.set(configuration.geracao_texto_configurada ? 'online' : 'offline');
+      this.connectionState.set(configuration.geracao_texto_configurada || configuration.chat_qa_configurado ? 'online' : 'offline');
     } catch (error) {
       this.connectionState.set('offline');
       this.notifications.error(error);
@@ -448,8 +438,6 @@ export class AiReadyPageComponent implements OnDestroy {
     try {
       const result = await firstValueFrom(this.api.analyze(this.selectedFiles()));
       this.workspace.set(result);
-      this.chatMessages.set([]);
-      this.chatOpen.set(false);
       if (previousWorkspaceId && previousWorkspaceId !== result.workspace_id) {
         this.api.discard(previousWorkspaceId).subscribe({error: () => undefined});
       }
@@ -476,8 +464,7 @@ export class AiReadyPageComponent implements OnDestroy {
   }
 
   toggleChat(): void {
-    // O balão deve permanecer acessível desde a entrada na tela.
-    // A ausência de um workspace limita apenas o envio de perguntas, não a abertura da ajuda.
+    // O chat é independente do workspace local de PDFs e consulta a API Q&A corporativa.
     this.chatOpen.set(!this.chatOpen());
   }
 
@@ -499,21 +486,19 @@ export class AiReadyPageComponent implements OnDestroy {
   }
 
   private async submitChat(): Promise<void> {
-    const workspaceId = this.workspace()?.workspace_id;
     const question = this.chatDraft.trim();
-    if (!workspaceId || !question || this.chatLoading()) return;
+    if (!this.chatAvailable() || !question || this.chatLoading()) return;
 
     const previous = this.chatMessages();
-    const history: ChatMessage[] = previous.slice(-10).map(item => ({role: item.role, content: item.content}));
     this.chatMessages.set([...previous, {role: 'user', content: question}]);
     this.chatDraft = '';
     this.chatLoading.set(true);
     try {
-      const response = await firstValueFrom(this.api.chat(workspaceId, question, history));
-      this.chatMessages.update(items => [...items, {role: 'assistant', content: response.resposta, sources: response.fontes}]);
+      const response = await firstValueFrom(this.api.chat(question));
+      this.chatMessages.update(items => [...items, {role: 'assistant', content: response.resposta}]);
     } catch (error) {
       this.notifications.error(error);
-      this.chatMessages.update(items => [...items, {role: 'assistant', content: 'Não foi possível gerar a resposta agora. Verifique a conexão e tente novamente.'}]);
+      this.chatMessages.update(items => [...items, {role: 'assistant', content: 'Não foi possível consultar a API de perguntas e respostas agora. Verifique a conexão e tente novamente.'}]);
     } finally {
       this.chatLoading.set(false);
     }

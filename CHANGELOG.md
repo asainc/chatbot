@@ -41,3 +41,13 @@
 ## 3.0.4
 - Ícone flutuante do chatbot reposicionado para o canto inferior direito.
 - Janela do chat reposicionada para abrir à direita.
+
+
+## 3.1.0 — Chatbot integrado à API Q&A
+- O chatbot deixou de usar `text_generator` e passou a chamar `gpt_bradesco.agente_informacional(payload)`.
+- A pergunta digitada é enviada sem reescrita no campo `question`.
+- O payload inclui o `workflow_code` fornecido e `async_mode: false`.
+- A resposta exibida no chat é o conteúdo do campo `answer` retornado pela API.
+- O chat foi desacoplado do workspace de PDFs e pode ser usado sem executar a análise documental.
+- `BRADESCO_QA_WORKFLOW_CODE` e `BRADESCO_QA_URL` foram parametrizados.
+- O endpoint fornecido foi tratado como confirmado apenas em DEV; homol/prod exigem URL explicitamente validada.

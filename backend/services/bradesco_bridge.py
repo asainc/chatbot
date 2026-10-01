@@ -1,10 +1,8 @@
-"""Integração mínima com ``gpt_bradesco.py`` para geração de texto.
+"""Integração do AI Ready com as funções corporativas de ``gpt_bradesco.py``.
 
-O AI Ready usa esta camada somente para geração de texto corporativa.
-Todo PDF é lido localmente com PyMuPDF e somente o texto resultante, combinado com
-os prompts versionados do projeto, é enviado à função pública ``text_generator``.
-
-Esta camada não duplica URLs, credenciais ou autenticação do módulo corporativo.
+A análise dos PDFs usa ``text_generator``. O chatbot usa
+``agente_informacional`` e apresenta o campo ``answer`` retornado pela API Q&A.
+Credenciais, autenticação e transporte continuam centralizados no módulo corporativo.
 """
 from __future__ import annotations
 
@@ -41,11 +39,11 @@ class BradescoBridgeError(ServiceError):
 
 
 class BradescoBridgeClient:
-    """Facade restrita ao ``text_generator`` do módulo corporativo.
+    """Facade para geração documental e perguntas e respostas corporativas.
 
     Responsabilidade:
-        Carregar ``gpt_bradesco.py`` sob demanda, validar a presença da função
-        ``text_generator`` e executar prompts com parâmetros centralizados.
+        Carregar ``gpt_bradesco.py`` sob demanda e isolar as chamadas a
+        ``text_generator`` e ``agente_informacional``.
 
     Entradas:
         ``Settings`` com deployment, timeout e parâmetros de geração.
@@ -64,8 +62,13 @@ class BradescoBridgeClient:
 
     @property
     def configured(self) -> bool:
-        """A configuração local exige apenas um deployment de geração de texto."""
+        """Indica se a análise documental possui deployment de geração configurado."""
         return bool(self.settings.bradesco_text_model.strip())
+
+    @property
+    def qa_configured(self) -> bool:
+        """Indica se existe um workflow de perguntas e respostas configurado."""
+        return bool(self.settings.bradesco_qa_workflow_code.strip())
 
     def _load(self) -> Any:
         """Importa o módulo corporativo somente na primeira chamada de prompt."""
@@ -106,6 +109,7 @@ class BradescoBridgeClient:
                     "timeout": self.settings.bradesco_timeout_seconds,
                     "text_url": self.settings.bradesco_text_url,
                     "identity_url": self.settings.bradesco_identity_url,
+                    "qa_url": self.settings.bradesco_qa_url,
                 })
             self._invoke_callable("configuração corporativa", configure, [(credentials,)])
 
@@ -313,3 +317,36 @@ class BradescoBridgeClient:
     def generate_text(self, payload: str, *, max_tokens: int) -> str:
         """Retorna somente o texto para consumidores que não precisam das métricas."""
         return self.generate_text_with_metadata(payload, max_tokens=max_tokens).text
+
+    def answer_question(self, question: str) -> str:
+        """Envia a pergunta ao ``agente_informacional`` e retorna o campo ``answer``.
+
+        O texto digitado pelo usuário é enviado sem enriquecimento ou reescrita no
+        campo ``question`` do payload corporativo.
+        """
+        module = self._load()
+        function = getattr(module, "agente_informacional", None)
+        if not callable(function):
+            raise BradescoBridgeError(
+                "bradesco_qa_indisponivel",
+                "gpt_bradesco.py precisa expor a função agente_informacional(payload).",
+                500,
+            )
+        payload = {
+            "workflow_code": self.settings.bradesco_qa_workflow_code,
+            "question": question,
+            "async_mode": False,
+        }
+        response = self._invoke_callable("perguntas e respostas", function, [(payload,)])
+        if not isinstance(response, dict):
+            raise BradescoBridgeError(
+                "bradesco_qa_resposta_incompativel",
+                "A API de perguntas e respostas retornou um formato incompatível.",
+            )
+        answer = response.get("answer")
+        if not isinstance(answer, str) or not answer.strip():
+            raise BradescoBridgeError(
+                "bradesco_qa_resposta_vazia",
+                "A API de perguntas e respostas não retornou o campo answer preenchido.",
+            )
+        return answer.strip()

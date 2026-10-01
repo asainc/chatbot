@@ -1,6 +1,6 @@
 # AI Ready — Assistente Processual Cível
 
-Aplicação Angular + FastAPI para leitura assistida de PDFs de processos cíveis. O produto organiza os autos em uma visão executiva, monta uma linha do tempo com referências de documento/página e oferece um chatbot generativo contextualizado no processo.
+Aplicação Angular + FastAPI para leitura assistida de PDFs de processos cíveis. O produto organiza os autos em uma visão executiva, monta uma linha do tempo com referências de documento/página e oferece um chatbot integrado à API corporativa de perguntas e respostas.
 
 ## O que foi removido
 
@@ -17,8 +17,9 @@ A versão atual não contém a antiga aplicação de auditoria de pagamentos, hi
 - Pedidos, fatos controvertidos, pontos de atenção e próximas verificações.
 - Linha do tempo com categoria, documento, página e indicador de confiança.
 - Visualização local dos PDFs no navegador.
-- Chat flutuante no canto inferior esquerdo.
-- Geração de linguagem utilizando `gpt_bradesco.text_generator` por meio de uma fachada única no backend.
+- Chat flutuante no canto inferior direito.
+- Análise documental utilizando `gpt_bradesco.text_generator`.
+- Chatbot utilizando `gpt_bradesco.agente_informacional(payload)` e apresentando o campo `answer` retornado pela API Q&A.
 - Descarte explícito do workspace e expiração automática do texto mantido em memória.
 
 ## Arquitetura resumida
@@ -36,10 +37,10 @@ FastAPI /api/v3
   ├─ PyMuPDF
   ├─ ProcessIntelligenceService
   ├─ WorkspaceStore (memória + TTL)
-  └─ BradescoBridgeClient
-            │
-            ▼
-  gpt_bradesco.text_generator
+  ├─ BradescoBridgeClient
+  │     ├─ gpt_bradesco.text_generator        ← análise dos PDFs
+  │     └─ gpt_bradesco.agente_informacional ← chatbot Q&A
+  └─ ChatService
 ```
 
 Detalhes: `docs/ARQUITETURA.md` e `docs/FLUXO_EXTRACAO_VISUAL.md`.
@@ -51,9 +52,10 @@ backend/
   contracts/                 contratos HTTP
   routers/processes.py       endpoints do AI Ready
   services/
-    bradesco_bridge.py       fachada para gpt_bradesco.text_generator
+    bradesco_bridge.py       fachada para text_generator e agente_informacional
+    chat_service.py           encaminhamento das perguntas do chatbot
     pdf_text_extractor.py    leitura local do PDF
-    process_intelligence.py  análise, consolidação e chat
+    process_intelligence.py  análise e consolidação dos PDFs
     prompt_loader.py         leitura dos prompts versionados
     workspace_store.py       contexto temporário em memória
   config.py                  configuração central
@@ -67,7 +69,6 @@ frontend/src/app/
 prompts/
   analise_trecho.md
   consolidacao_processo.md
-  chat_processual.md
 ```
 
 ## Pré-requisitos
@@ -142,6 +143,7 @@ BRADESCO_AMBIENTE=dev
 BRADESCO_TEXT_MODEL=<deployment_autorizado>
 BRADESCO_IDENTIFICADOR=<segredo_no_ambiente>
 BRADESCO_SENHA=<segredo_no_ambiente>
+BRADESCO_QA_WORKFLOW_CODE=CD_WRFL_QA_778_LEITURA_SENTENCA_PIAUI_AAJR_SYNC
 ```
 
 O projeto também aceita token conforme o contrato já implementado em `gpt_bradesco.py`.
@@ -175,9 +177,11 @@ Abra `http://127.0.0.1:4200`. O arquivo `frontend/public/app-config.json` aponta
 7. As respostas parciais são consolidadas por uma nova chamada ao `text_generator` usando `prompts/consolidacao_processo.md`.
 8. O backend valida o JSON final com Pydantic e guarda o texto dos documentos somente em memória com TTL.
 9. O frontend renderiza resumo, indicadores, partes, timeline, pedidos e pontos de atenção.
-10. Perguntas do chat são enviadas a `POST /api/v3/ai-ready/{workspace_id}/chat`.
-11. O backend monta o prompt com resumo estruturado, histórico recente e trechos dos autos, e chama novamente `gpt_bradesco.text_generator`.
-12. Ao encerrar a página ou iniciar outro workspace, o frontend solicita descarte do contexto anterior. O TTL também remove contextos abandonados.
+10. A pergunta digitada no chat é enviada a `POST /api/v3/ai-ready/chat`.
+11. O backend monta o payload com `workflow_code`, a pergunta original em `question` e `async_mode: false`.
+12. `BradescoBridgeClient` chama `gpt_bradesco.agente_informacional(payload)`.
+13. O backend lê o campo `answer` e o frontend o apresenta na janela do chatbot preservando quebras de linha.
+14. O chat não depende do workspace local de PDFs. O workspace continua sendo descartado separadamente quando necessário e também expira por TTL.
 
 ## Endpoints
 
@@ -185,7 +189,7 @@ Abra `http://127.0.0.1:4200`. O arquivo `frontend/public/app-config.json` aponta
 GET    /api/v3/saude
 GET    /api/v3/ai-ready/configuracao
 POST   /api/v3/ai-ready/analisar
-POST   /api/v3/ai-ready/{workspace_id}/chat
+POST   /api/v3/ai-ready/chat
 DELETE /api/v3/ai-ready/{workspace_id}
 ```
 
@@ -226,3 +230,17 @@ Os testes do repositório usam dados sintéticos e mocks; não inclua dados reai
 
 - Ícone flutuante do chatbot movido para o canto inferior direito.
 - Janela do chat também aberta à direita, mantendo o mesmo comportamento visual.
+
+## Integração Q&A do chatbot — v3.1.0
+
+O campo do chatbot não usa `text_generator`. A pergunta é encaminhada sem reescrita para `gpt_bradesco.agente_informacional`. O payload usado é:
+
+```python
+{
+    "workflow_code": "CD_WRFL_QA_778_LEITURA_SENTENCA_PIAUI_AAJR_SYNC",
+    "question": pergunta_digitada,
+    "async_mode": False,
+}
+```
+
+A aplicação espera que a função retorne um dicionário contendo `answer`. O token permanece exclusivamente no backend via `BRADESCO_AUTHORIZATION_TOKEN` ou pelo mecanismo de autenticação já existente em `gpt_bradesco.py`. `BRADESCO_QA_URL` pode sobrescrever o endpoint; o endereço fornecido foi confirmado apenas para DEV, portanto homol/prod exigem URL explicitamente validada.

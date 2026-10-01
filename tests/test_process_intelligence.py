@@ -59,17 +59,14 @@ def make_pdf() -> bytes:
 
 
 @pytest.mark.asyncio
-async def test_analysis_and_chat_use_bridge() -> None:
+async def test_analysis_uses_text_generation_bridge() -> None:
     settings = Settings(bradesco_text_model="deployment-teste", bradesco_prompt_max_chars=12000)
     bridge = FakeBridge()
     service = ProcessIntelligenceService(settings, bridge, WorkspaceStore(settings))
     upload = UploadFile(filename="sentenca.pdf", file=BytesIO(make_pdf()), headers={"content-type": "application/pdf"})
 
     result = await service.analyze_uploads([upload])
-    chat = service.chat(result.workspace_id, "O que foi decidido?", [])
 
     assert result.processo.numero_processo == "0000000-00.2026.8.26.0000"
     assert result.linha_tempo[0].documento == "sentenca.pdf"
-    assert "página 1" in chat.resposta
-    assert chat.fontes[0].pagina == 1
-    assert len(bridge.calls) >= 3
+    assert len(bridge.calls) >= 2

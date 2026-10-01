@@ -39,6 +39,8 @@ class Settings(Contract):
     bradesco_ca_bundle: Path | None = None
     bradesco_text_url: str = ""
     bradesco_identity_url: str = ""
+    bradesco_qa_url: str = ""
+    bradesco_qa_workflow_code: str = Field(default="CD_WRFL_QA_778_LEITURA_SENTENCA_PIAUI_AAJR_SYNC", min_length=1, max_length=180)
     bradesco_timeout_seconds: int = Field(default=600, ge=10, le=1800)
     bradesco_text_model: str = Field(default="", max_length=100)
     bradesco_text_temperature: float = Field(default=0.2, ge=0, le=2)
@@ -46,7 +48,6 @@ class Settings(Contract):
     bradesco_prompt_max_chars: int = Field(default=52000, ge=12000, le=250000)
     bradesco_analysis_max_tokens: int = Field(default=9000, ge=1024, le=30000)
     max_analysis_chunks: int = Field(default=24, ge=1, le=100)
-    bradesco_chat_max_tokens: int = Field(default=5000, ge=512, le=16000)
 
     gateway_token: SecretStr = SecretStr("")
 
@@ -98,13 +99,14 @@ def load_settings() -> Settings:
         "BRADESCO_TIMEOUT_SECONDS": "bradesco_timeout_seconds",
         "BRADESCO_TEXT_URL": "bradesco_text_url",
         "BRADESCO_IDENTITY_URL": "bradesco_identity_url",
+        "BRADESCO_QA_URL": "bradesco_qa_url",
+        "BRADESCO_QA_WORKFLOW_CODE": "bradesco_qa_workflow_code",
         "BRADESCO_TEXT_MODEL": "bradesco_text_model",
         "BRADESCO_TEXT_TEMPERATURE": "bradesco_text_temperature",
         "BRADESCO_TEXT_MAX_TOKENS": "bradesco_text_max_tokens",
         "BRADESCO_PROMPT_MAX_CHARS": "bradesco_prompt_max_chars",
         "BRADESCO_ANALYSIS_MAX_TOKENS": "bradesco_analysis_max_tokens",
         "MAX_ANALYSIS_CHUNKS": "max_analysis_chunks",
-        "BRADESCO_CHAT_MAX_TOKENS": "bradesco_chat_max_tokens",
         "MAX_UPLOAD_BYTES": "max_upload_bytes",
         "MAX_UPLOAD_FILES": "max_upload_files",
         "MAX_TOTAL_UPLOAD_BYTES": "max_total_upload_bytes",

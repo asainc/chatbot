@@ -2,10 +2,8 @@
 from backend.contracts.base import Contract
 from backend.contracts.process import (
     AiReadyConfiguration,
-    ChatMessage,
     ChatRequest,
     ChatResponse,
-    ChatSource,
     DocumentSummary,
     Party,
     ProcessOverview,
@@ -16,10 +14,8 @@ from backend.contracts.process import (
 __all__ = [
     "Contract",
     "AiReadyConfiguration",
-    "ChatMessage",
     "ChatRequest",
     "ChatResponse",
-    "ChatSource",
     "DocumentSummary",
     "Party",
     "ProcessOverview",

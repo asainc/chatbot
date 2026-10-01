@@ -18,6 +18,7 @@ from backend.contracts.base import Contract
 from backend.errors import ServiceError
 from backend.routers import processes
 from backend.services.bradesco_bridge import BradescoBridgeClient
+from backend.services.chat_service import ChatService
 from backend.services.process_intelligence import ProcessIntelligenceService
 from backend.services.workspace_store import WorkspaceStore
 from backend.version import API_CONTRACT_VERSION, API_PREFIX, APP_VERSION
@@ -47,6 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     bridge = BradescoBridgeClient(configuration)
     store = WorkspaceStore(configuration)
     process_intelligence = ProcessIntelligenceService(configuration, bridge, store)
+    chat_service = ChatService(configuration, bridge)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -56,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = configuration
     app.state.bridge = bridge
     app.state.process_intelligence = process_intelligence
+    app.state.chat_service = chat_service
 
     logger = logging.getLogger("ai_ready")
     if not logger.handlers:
